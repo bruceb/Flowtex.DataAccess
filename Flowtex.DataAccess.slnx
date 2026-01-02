@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Flowtex.DataAccess.ApplicationAbstractions/Flowtex.DataAccess.ApplicationAbstractions.csproj" />
+  <Project Path="Flowtex.DataAccess.Infrastructure/Flowtex.DataAccess.Infrastructure.csproj" />
+</Solution>
