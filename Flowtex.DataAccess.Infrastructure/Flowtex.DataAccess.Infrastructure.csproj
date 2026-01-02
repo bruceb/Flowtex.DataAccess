@@ -12,8 +12,7 @@
     <Company>Flowtex</Company>
     <Product>Flowtex Data Access</Product>
     <Description>A modern, streamlined data access library for Entity Framework Core that provides a clean alternative to the traditional Repository and Unit of Work patterns. Includes abstractions and base implementations for simplified data operations.</Description>
-    <PackageTags>flowtex;dataaccess;entityframework;efcore;repository;orm</PackageTags>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>flowtex;dataaccess;entityframework;efcore;repository;unitofwork</PackageTags>
     <PackageProjectUrl>https://github.com/flowtex/dataaccess</PackageProjectUrl>
     <RepositoryUrl>https://github.com/flowtex/dataaccess</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
