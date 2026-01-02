@@ -7,7 +7,7 @@
     
     <!-- NuGet Package Properties -->
     <PackageId>Flowtex.DataAccess</PackageId>
-    <PackageVersion>1.0.1</PackageVersion>
+    <PackageVersion>1.0.3</PackageVersion>
     <Authors>Flowtex</Authors>
     <Company>Flowtex</Company>
     <Product>Flowtex Data Access</Product>
@@ -31,7 +31,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Flowtex.DataAccess.ApplicationAbstractions\Flowtex.DataAccess.ApplicationAbstractions.csproj" />
+    <ProjectReference Include="..\Flowtex.DataAccess.ApplicationAbstractions\Flowtex.DataAccess.ApplicationAbstractions.csproj" 
+                      PrivateAssets="all" 
+                      ReferenceOutputAssembly="true" 
+                      IncludeAssets="all" />
+  </ItemGroup>
+
+  <!-- Ensure the referenced assembly gets included in the package -->
+  <ItemGroup>
+    <None Include="$(OutputPath)\Flowtex.DataAccess.ApplicationAbstractions.dll" Pack="true" PackagePath="lib\$(TargetFramework)\" Condition="Exists('$(OutputPath)\Flowtex.DataAccess.ApplicationAbstractions.dll')" />
   </ItemGroup>
 
 </Project>

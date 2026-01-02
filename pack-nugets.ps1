@@ -1,5 +1,5 @@
 # Build and Pack NuGet Package for Flowtex.DataAccess
-# Version: 1.0.1
+# Version: 1.0.3
 
 param(
     [string]$Configuration = "Release",
