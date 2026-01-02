@@ -4,7 +4,28 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    
+    <!-- NuGet Package Properties -->
+    <PackageId>Flowtex.DataAccess</PackageId>
+    <PackageVersion>1.0.1</PackageVersion>
+    <Authors>Flowtex</Authors>
+    <Company>Flowtex</Company>
+    <Product>Flowtex Data Access</Product>
+    <Description>A modern, streamlined data access library for Entity Framework Core that provides a clean alternative to the traditional Repository and Unit of Work patterns. Includes abstractions and base implementations for simplified data operations.</Description>
+    <PackageTags>flowtex;dataaccess;entityframework;efcore;repository;orm</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/flowtex/dataaccess</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/flowtex/dataaccess</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.1" />

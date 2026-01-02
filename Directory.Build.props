@@ -1,0 +1,33 @@
+<Project>
+  
+  <PropertyGroup>
+    <!-- Common Package Properties -->
+    <PackageVersion>1.0.1</PackageVersion>
+    <Authors>Flowtex</Authors>
+    <Company>Flowtex</Company>
+    <Product>Flowtex Data Access</Product>
+    <Copyright>Copyright © Flowtex 2026</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/flowtex/dataaccess</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/flowtex/dataaccess</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    
+    <!-- Build Properties -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <WarningsNotAsErrors />
+    
+    <!-- Source Link Properties -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
+  </ItemGroup>
+
+</Project>
