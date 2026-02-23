@@ -1,4 +1,4 @@
-using Flowtex.DataAccess.Application.Abstractions;
+using Flowtex.DataAccess.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -65,7 +65,7 @@ class Program
                 // Step 2: Create order
                 var order = new Order
                 {
-                    OrderNumber = $"TXN-{DateTime.Now:yyyyMMddHHmmss}",
+                    OrderNumber = $"TXN-{DateTime.UtcNow:yyyyMMddHHmmss}",
                     CustomerId = customer.Id,
                     Status = OrderStatus.Processing
                 };
@@ -108,25 +108,19 @@ class Program
                     orderItems.Add(orderItem);
                     totalAmount += orderItem.TotalPrice;
                     
-                    // Update product stock
+                    // Stage the stock reduction — do NOT save individually.
+                    // All remaining changes are flushed in one batch below.
                     product.Stock -= item.Quantity;
-                    var productUpdateHandle = transactionDataStore.Update(product);
-                    await productUpdateHandle.SaveAsync();
+                    transactionDataStore.Update(product);
                 }
                 
-                // Step 4: Save order items
-                var itemsHandle = await transactionDataStore.AddRangeAsync(orderItems);
-                await itemsHandle.SaveAsync();
-                
-                // Step 5: Update order total
+                // Steps 4-6: Stage all remaining writes and flush once to minimise
+                // round-trips within the transaction.
+                await transactionDataStore.AddRangeAsync(orderItems);
                 order.TotalAmount = totalAmount;
-                var orderUpdateHandle = transactionDataStore.Update(order);
-                await orderUpdateHandle.SaveAsync();
-                
-                // Step 6: Mark order as shipped (simulate processing time)
                 order.Status = OrderStatus.Shipped;
-                var finalOrderHandle = transactionDataStore.Update(order);
-                await finalOrderHandle.SaveAsync();
+                transactionDataStore.Update(order);
+                await transactionDataStore.SaveChangesAsync();
                 
                 return new OrderResult 
                 { 
@@ -162,7 +156,7 @@ class Program
                 // Step 2: Create a payment record (simulated)
                 var order = new Order
                 {
-                    OrderNumber = "COMP-" + DateTime.Now.Ticks,
+                    OrderNumber = "COMP-" + DateTime.UtcNow.Ticks,
                     CustomerId = 1,
                     TotalAmount = 100.00m,
                     Status = OrderStatus.Processing
@@ -175,9 +169,10 @@ class Program
                 
                 // Step 3: Simulate payment processing failure
                 await Task.Delay(100); // Simulate processing time
-                throw new InvalidOperationException("Payment processing failed");
-                
-                // This code won't be reached, transaction will rollback
+                bool paymentApproved = false; // Simulated payment decline
+                if (!paymentApproved)
+                    throw new InvalidOperationException("Payment processing failed");
+
                 return true;
             });
         }
@@ -206,8 +201,10 @@ class Program
             if (customer != null)
             {
                 customer.Phone = "+1-555-0123";
-                var customerHandle = outerDataStore.Update(customer);
-                await customerHandle.SaveAsync();
+                // Stage the update — do not save yet. ProcessOrderInSameTransaction will call
+                // SaveChangesAsync to obtain the order's auto-generated ID, which also persists
+                // this staged customer change in the same round-trip.
+                outerDataStore.Update(customer);
                 
                 logger.LogInformation("Updated customer phone in outer transaction");
             }
@@ -228,7 +225,7 @@ class Program
         // This method participates in the existing transaction
         var order = new Order
         {
-            OrderNumber = $"NESTED-{DateTime.Now:HHmmss}",
+            OrderNumber = $"NESTED-{DateTime.UtcNow:HHmmss}",
             CustomerId = 1,
             TotalAmount = 50.00m,
             Status = OrderStatus.Pending

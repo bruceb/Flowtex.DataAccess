@@ -1,5 +1,6 @@
-using Flowtex.DataAccess.Application.Abstractions;
+using Flowtex.DataAccess.Abstractions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Samples.Domain.DTOs;
 using Samples.Domain.Entities;
 
@@ -14,7 +15,7 @@ public class ProductsController : ControllerBase
     private readonly ILogger<ProductsController> _logger;
 
     public ProductsController(
-        IDataStore dataStore, 
+        IDataStore dataStore,
         IReadStore readStore,
         ILogger<ProductsController> logger)
     {
@@ -31,13 +32,13 @@ public class ProductsController : ControllerBase
         var products = await _readStore.ListAsync<Product, ProductSummary>(q =>
         {
             var query = q.AsQueryable();
-            
+
             if (activeOnly == true)
-                query = query.Where(p => p.IsActive);
-                
+                query = query.Where(p => p.Status == ProductStatus.Active);
+
             if (categoryId.HasValue)
                 query = query.Where(p => p.CategoryId == categoryId.Value);
-            
+
             return query.Select(p => new ProductSummary
             {
                 Id = p.Id,
@@ -51,6 +52,9 @@ public class ProductsController : ControllerBase
         return Ok(products);
     }
 
+    // Intentionally returns the full Product entity with its Category navigation property
+    // included. This is appropriate here because the full domain model is the intended
+    // response shape. For a DTO-projected alternative see GetProductDetail below.
     [HttpGet("{id}")]
     public async Task<ActionResult<Product>> GetProduct(int id)
     {
@@ -64,6 +68,39 @@ public class ProductsController : ControllerBase
         return Ok(product);
     }
 
+    /// <summary>
+    /// Returns a <see cref="ProductDetailDto"/> projection for the given product.
+    /// Demonstrates server-side column projection: only the fields declared on the DTO
+    /// are fetched from the database — no over-fetching, no circular-reference risk.
+    /// Compare with <see cref="GetProduct"/> which returns the full entity graph.
+    /// </summary>
+    [HttpGet("{id}/detail")]
+    public async Task<ActionResult<ProductDetailDto>> GetProductDetail(int id)
+    {
+        var dto = await _readStore.Query<Product>()
+            .Where(p => p.Id == id)
+            .Select(p => new ProductDetailDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Price = p.Price,
+                Stock = p.Stock,
+                CategoryId = p.CategoryId,
+                CategoryName = p.Category.Name,
+                Status = p.Status,
+                ExpirationDate = p.ExpirationDate,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt
+            })
+            .FirstOrDefaultAsync();
+
+        if (dto is null)
+            return NotFound();
+
+        return Ok(dto);
+    }
+
     [HttpPost]
     public async Task<ActionResult<Product>> CreateProduct(Product product)
     {
@@ -74,7 +111,7 @@ public class ProductsController : ControllerBase
         await handle.SaveAsync();
 
         _logger.LogInformation("Created product {ProductId}: {ProductName}", product.Id, product.Name);
-        
+
         return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
     }
 
@@ -93,17 +130,19 @@ public class ProductsController : ControllerBase
         if (existingProduct == null)
             return NotFound();
 
-        // Update properties
+        // Mutate the tracked entity directly. Because it was loaded via QueryTracked,
+        // the change tracker already holds a snapshot; SaveChangesAsync detects the diff
+        // and emits a minimal UPDATE. Calling dataStore.Update() is not needed here and
+        // would unnecessarily mark all columns as modified.
         existingProduct.Name = product.Name;
         existingProduct.Description = product.Description;
         existingProduct.Price = product.Price;
         existingProduct.Stock = product.Stock;
         existingProduct.CategoryId = product.CategoryId;
-        existingProduct.IsActive = product.IsActive;
-        existingProduct.UpdatedAt = DateTime.UtcNow;
+        existingProduct.Status = product.Status;
+        // UpdatedAt is set automatically by SampleDbContext.StampTimestamps on save.
 
-        var handle = _dataStore.Update(existingProduct);
-        await handle.SaveAsync();
+        await _dataStore.SaveChangesAsync();
 
         _logger.LogInformation("Updated product {ProductId}: {ProductName}", id, product.Name);
 
@@ -131,8 +170,8 @@ public class ProductsController : ControllerBase
     public async Task<IActionResult> DiscontinueProduct(int id)
     {
         var affectedRows = await _dataStore.ExecuteUpdateAsync<Product>(
-            p => p.Id == id && !p.IsDiscontinued,
-            builder => builder.SetConst(p => p.IsDiscontinued, true));
+            p => p.Id == id && p.Status != ProductStatus.Discontinued,
+            builder => builder.SetConst(p => p.Status, ProductStatus.Discontinued));
 
         if (affectedRows == 0)
             return NotFound();
@@ -145,14 +184,18 @@ public class ProductsController : ControllerBase
     [HttpPost("bulk-update-stock")]
     public async Task<IActionResult> BulkUpdateStock([FromBody] Dictionary<int, int> stockUpdates)
     {
-        var productIds = stockUpdates.Keys.ToList();
-        
-        foreach (var update in stockUpdates)
+        // Wrap all updates in a single transaction so a partial failure
+        // does not leave stock in an inconsistent state.
+        await _dataStore.InTransactionAsync(async store =>
         {
-            await _dataStore.ExecuteUpdateAsync<Product>(
-                p => p.Id == update.Key,
-                builder => builder.SetConst(p => p.Stock, update.Value));
-        }
+            foreach (var update in stockUpdates)
+            {
+                await store.ExecuteUpdateAsync<Product>(
+                    p => p.Id == update.Key,
+                    builder => builder.SetConst(p => p.Stock, update.Value));
+            }
+            return true;
+        });
 
         _logger.LogInformation("Bulk updated stock for {Count} products", stockUpdates.Count);
 

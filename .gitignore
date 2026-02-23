@@ -424,3 +424,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Claude Code - local settings are machine-specific and should not be committed
+.claude/settings.local.json

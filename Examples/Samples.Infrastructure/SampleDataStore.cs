@@ -1,4 +1,5 @@
 using Flowtex.DataAccess.Infrastructure;
+using Flowtex.DataAccess.Abstractions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Samples.Infrastructure;
@@ -13,6 +14,4 @@ public class SampleDataStore : DataStoreBase
     }
 
     protected override DbContext Context => _context;
-
-    protected override DbSet<T> GetDbSet<T>() => _context.Set<T>();
 }

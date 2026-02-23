@@ -1,0 +1,9 @@
+<Project>
+  <!-- Override root Directory.Build.props settings that don't apply to sample projects -->
+  <PropertyGroup>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageReadmeFile />
+    <PackageLicenseFile />
+    <IncludeSymbols>false</IncludeSymbols>
+  </PropertyGroup>
+</Project>

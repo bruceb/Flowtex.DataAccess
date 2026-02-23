@@ -8,10 +8,14 @@ public class Product
     public decimal Price { get; set; }
     public int Stock { get; set; }
     public int CategoryId { get; set; }
-    public bool IsActive { get; set; } = true;
-    public bool IsDiscontinued { get; set; } = false;
+    /// <summary>
+    /// Replaces the previous dual IsActive/IsDiscontinued boolean flags.
+    /// A single enum prevents the invalid state where both flags could be set simultaneously.
+    /// </summary>
+    public ProductStatus Status { get; set; } = ProductStatus.Active;
     public DateTime? ExpirationDate { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>Set by the infrastructure layer at persistence time, not at object construction.</summary>
+    public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
     // Navigation properties

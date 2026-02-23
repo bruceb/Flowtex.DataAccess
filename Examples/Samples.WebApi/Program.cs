@@ -1,4 +1,4 @@
-using Flowtex.DataAccess.Application.Abstractions;
+using Flowtex.DataAccess.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Samples.Infrastructure;
 
@@ -9,7 +9,7 @@ builder.Services.AddDbContext<SampleDbContext>(options =>
     options.UseInMemoryDatabase("SampleApiDb"));
 
 builder.Services.AddScoped<IDataStore, SampleDataStore>();
-builder.Services.AddScoped<IReadStore>(provider => provider.GetService<IDataStore>()!);
+builder.Services.AddScoped<IReadStore>(provider => provider.GetRequiredService<IDataStore>());
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

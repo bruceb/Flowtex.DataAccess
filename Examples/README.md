@@ -114,6 +114,7 @@ dotnet test
 ### Samples.TestingStrategies
 **What it demonstrates:**
 - Unit testing with mocked interfaces
+- Separating read and write concerns into distinct service classes (`ProductQueryService` / `ProductCommandService`) so each depends on only the interface it needs
 - Integration testing approaches
 - Test data setup and cleanup
 - Assertion patterns for data access operations
@@ -122,7 +123,7 @@ dotnet test
 - NUnit test framework examples
 - Moq mocking library usage
 - In-memory database testing
-- Service layer testing patterns
+- Single-responsibility service classes — no dual-constructor / nullable-field anti-pattern
 
 ## 🏗️ Shared Infrastructure
 
@@ -130,14 +131,15 @@ dotnet test
 Contains the common domain model used across all examples:
 
 - **Entities:** `Product`, `Category`, `Customer`, `Order`, `OrderItem`
+  - Timestamp fields (`CreatedAt`, `UpdatedAt`) carry **no** default initializer; values are assigned by `SampleDbContext.SaveChangesAsync` at the point of persistence
 - **DTOs:** `ProductSummary`, `OrderResult`
 - **Enums:** `OrderStatus`
 
 ### Samples.Infrastructure
 Provides shared infrastructure components:
 
-- **`SampleDbContext`** - Entity Framework DbContext with full configuration
-- **`SampleDataStore`** - Implementation of DataStoreBase for the sample domain
+- **`SampleDbContext`** - Entity Framework DbContext with full configuration, including a `SaveChangesAsync` override that sets `CreatedAt` on new entities and `UpdatedAt` on modified entities at persistence time (not at object construction)
+- **`SampleDataStore`** - Minimal subclass of `DataStoreBase`; only overrides `Context` — no `GetDbSet<T>()` needed since `DataStoreBase` calls `Context.Set<T>()` internally
 - **Seed Data** - Pre-populated test data for examples
 - **Database Configurations** - Entity mappings and relationships
 
@@ -154,15 +156,31 @@ var saveHandle = await dataStore.AddAsync(product);
 await saveHandle.SaveAsync();
 ```
 
-### 2. Explicit Save Control
-```csharp
-// Fine-grained control over when data is persisted
-var handle1 = await dataStore.AddAsync(entity1);
-var handle2 = await dataStore.AddAsync(entity2);
+### 2. Batching Mutations and Save Control
 
-// Save both together
-await handle1.SaveAsync();
-await handle2.SaveAsync();
+`ISaveHandle.SaveAsync()` flushes **all** pending context changes (not just the staged operation), because EF Core shares one change tracker per `DbContext` instance. When staging several mutations for a single round-trip, ignore the individual handles and call `SaveChangesAsync()` directly:
+
+```csharp
+// Stage multiple mutations
+await dataStore.AddAsync(entity1);  // handle ignored
+dataStore.Update(entity2);           // handle ignored
+
+// Persist everything in one database round-trip
+await dataStore.SaveChangesAsync();
+```
+
+When you need an auto-generated key (e.g. a foreign key for child rows), save the parent first, then stage the children:
+
+```csharp
+// Must save to obtain the auto-generated order.Id
+var orderHandle = await dataStore.AddAsync(order);
+await orderHandle.SaveAsync();
+
+// Now stage child rows and flush once
+foreach (var item in items)
+    item.OrderId = order.Id;
+await dataStore.AddRangeAsync(items);
+await dataStore.SaveChangesAsync();
 ```
 
 ### 3. Powerful Bulk Operations
@@ -174,16 +192,26 @@ await dataStore.ExecuteUpdateAsync<Product>(
 ```
 
 ### 4. Transaction Management
+
+`InTransactionAsync` commits on success or rolls back on any exception. It does **not** call `SaveChangesAsync` implicitly — callers must flush changes inside the delegate.
+
 ```csharp
-// Atomic transactions with automatic rollback
+// Atomic transaction: commit on success, automatic rollback on exception
 var result = await dataStore.InTransactionAsync(async tx =>
 {
-    // Multiple operations in single transaction
-    var handle1 = await tx.AddAsync(order);
-    await handle1.SaveAsync();
-    
+    // Save order to obtain its auto-generated Id
+    var orderHandle = await tx.AddAsync(order);
+    await orderHandle.SaveAsync();
+
+    // Stage remaining writes and flush in one round-trip
+    foreach (var item in items)
+        item.OrderId = order.Id;
+    await tx.AddRangeAsync(items);
+    await tx.SaveChangesAsync();
+
+    // ExecuteUpdateAsync runs immediately as its own statement inside the transaction
     await tx.ExecuteUpdateAsync<Product>(/* update inventory */);
-    
+
     return orderResult;
 });
 ```

@@ -27,19 +27,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Flowtex.DataAccess.ApplicationAbstractions\Flowtex.DataAccess.ApplicationAbstractions.csproj" 
-                      PrivateAssets="all" 
-                      ReferenceOutputAssembly="true" 
-                      IncludeAssets="all" />
+    <ProjectReference Include="..\Flowtex.DataAccess.ApplicationAbstractions\Flowtex.DataAccess.ApplicationAbstractions.csproj" PrivateAssets="all" ReferenceOutputAssembly="true" IncludeAssets="all" />
   </ItemGroup>
 
   <!-- Ensure the referenced assembly gets included in the package -->
   <ItemGroup>
     <None Include="$(OutputPath)\Flowtex.DataAccess.ApplicationAbstractions.dll" Pack="true" PackagePath="lib\$(TargetFramework)\" Condition="Exists('$(OutputPath)\Flowtex.DataAccess.ApplicationAbstractions.dll')" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.103" />
   </ItemGroup>
 
 </Project>

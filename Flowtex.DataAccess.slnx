@@ -1,4 +1,13 @@
 <Solution>
+  <Folder Name="/Examples/">
+    <Project Path="Examples/Samples.BasicUsage/Samples.BasicUsage.csproj" />
+    <Project Path="Examples/Samples.Domain/Samples.Domain.csproj" />
+    <Project Path="Examples/Samples.Infrastructure/Samples.Infrastructure.csproj" />
+    <Project Path="Examples/Samples.PerformanceDemo/Samples.PerformanceDemo.csproj" />
+    <Project Path="Examples/Samples.TestingStrategies/Samples.TestingStrategies.csproj" />
+    <Project Path="Examples/Samples.TransactionScenarios/Samples.TransactionScenarios.csproj" />
+    <Project Path="Examples/Samples.WebApi/Samples.WebApi.csproj" />
+  </Folder>
   <Project Path="Flowtex.DataAccess.ApplicationAbstractions/Flowtex.DataAccess.ApplicationAbstractions.csproj" />
   <Project Path="Flowtex.DataAccess.Infrastructure/Flowtex.DataAccess.Infrastructure.csproj" />
 </Solution>

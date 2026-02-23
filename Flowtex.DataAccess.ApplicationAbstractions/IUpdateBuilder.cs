@@ -1,7 +1,7 @@
 ﻿using System.Linq.Expressions;
 
 
-namespace Flowtex.DataAccess.Application.Abstractions;
+namespace Flowtex.DataAccess.Abstractions;
 
 public interface IUpdateBuilder<T>
 {

@@ -1,4 +1,4 @@
-using Flowtex.DataAccess.Application.Abstractions;
+using Flowtex.DataAccess.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -41,7 +41,7 @@ class Program
             options.UseInMemoryDatabase("SampleDb"));
             
         services.AddScoped<IDataStore, SampleDataStore>();
-        services.AddScoped<IReadStore>(provider => provider.GetService<IDataStore>()!);
+        services.AddScoped<IReadStore>(provider => provider.GetRequiredService<IDataStore>());
         
         services.AddLogging(builder => builder.AddConsole());
     }
@@ -52,7 +52,7 @@ class Program
         
         // Simple query
         var activeProducts = await readStore.ListAsync<Product>(q => 
-            q.Where(p => p.IsActive)
+            q.Where(p => p.Status == ProductStatus.Active)
              .OrderBy(p => p.Name));
              
         logger.LogInformation($"Found {activeProducts.Count} active products:");
@@ -63,7 +63,7 @@ class Program
         
         // Query with projection
         var productSummaries = await readStore.ListAsync<Product, object>(q =>
-            q.Where(p => p.IsActive)
+            q.Where(p => p.Status == ProductStatus.Active)
              .Select(p => new { p.Name, p.Price, CategoryName = p.Category.Name }));
              
         logger.LogInformation($"\nProduct summaries ({productSummaries.Count} items):");
@@ -126,7 +126,7 @@ class Program
         // Bulk update
         var updatedCount = await dataStore.ExecuteUpdateAsync<Product>(
             p => p.CategoryId == 1,
-            builder => builder.SetConst(p => p.IsActive, true));
+            builder => builder.SetConst(p => p.Status, ProductStatus.Active));
             
         logger.LogInformation($"Bulk updated {updatedCount} electronics products");
         
@@ -147,30 +147,27 @@ class Program
             // Create order
             var order = new Order
             {
-                OrderNumber = $"ORD-{DateTime.Now:yyyyMMddHHmmss}",
+                OrderNumber = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}",
                 CustomerId = 1,
                 TotalAmount = 0
             };
             
             var orderHandle = await transactionDataStore.AddAsync(order);
-            await orderHandle.SaveAsync();
+            await orderHandle.SaveAsync(); // Save to obtain order.Id for the order-items FK.
             
-            // Add order items
+            // Stage order items and the total update, then flush both in one round-trip.
             var orderItems = new List<OrderItem>
             {
                 new() { OrderId = order.Id, ProductId = 1, Quantity = 1, UnitPrice = 1299.99m },
                 new() { OrderId = order.Id, ProductId = 3, Quantity = 2, UnitPrice = 49.99m }
             };
-            
-            var itemsHandle = await transactionDataStore.AddRangeAsync(orderItems);
-            await itemsHandle.SaveAsync();
-            
-            // Update order total
+
             order.TotalAmount = orderItems.Sum(i => i.TotalPrice);
-            var updateOrderHandle = transactionDataStore.Update(order);
-            await updateOrderHandle.SaveAsync();
+            await transactionDataStore.AddRangeAsync(orderItems);
+            transactionDataStore.Update(order);
+            await transactionDataStore.SaveChangesAsync();
             
-            // Update product stock
+            // ExecuteUpdateAsync runs immediately; it does not participate in SaveChanges.
             await transactionDataStore.ExecuteUpdateAsync<Product>(
                 p => p.Id == 1,
                 builder => builder.Set(p => p.Stock, p => p.Stock - 1));

@@ -1,4 +1,4 @@
-using Flowtex.DataAccess.Application.Abstractions;
+using Flowtex.DataAccess.Abstractions;
 using Moq;
 using NUnit.Framework;
 using Samples.Domain.Entities;
@@ -24,9 +24,9 @@ public class UnitTestExamples
         // Arrange
         var products = new List<Product>
         {
-            new() { Id = 1, Name = "Active Product 1", IsActive = true, Price = 10.00m },
-            new() { Id = 2, Name = "Inactive Product", IsActive = false, Price = 20.00m },
-            new() { Id = 3, Name = "Active Product 2", IsActive = true, Price = 30.00m }
+            new() { Id = 1, Name = "Active Product 1", Status = ProductStatus.Active, Price = 10.00m },
+            new() { Id = 2, Name = "Inactive Product", Status = ProductStatus.Inactive, Price = 20.00m },
+            new() { Id = 3, Name = "Active Product 2", Status = ProductStatus.Active, Price = 30.00m }
         };
 
         _mockReadStore.Setup(x => x.ListAsync<Product>(
@@ -40,14 +40,14 @@ public class UnitTestExamples
                 return query.ToList();
             });
 
-        var service = new ProductService(_mockReadStore.Object);
+        var service = new ProductQueryService(_mockReadStore.Object);
 
         // Act
         var result = await service.GetActiveProductsAsync();
 
         // Assert
         Assert.That(result, Has.Count.EqualTo(2));
-        Assert.That(result.All(p => p.IsActive), Is.True);
+        Assert.That(result.All(p => p.Status == ProductStatus.Active), Is.True);
         Assert.That(result.Select(p => p.Name), Is.EquivalentTo(new[] { "Active Product 1", "Active Product 2" }));
     }
 
@@ -64,7 +64,7 @@ public class UnitTestExamples
         mockSaveHandle.Setup(x => x.SaveAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        var service = new ProductService(_mockDataStore.Object);
+        var service = new ProductCommandService(_mockDataStore.Object);
 
         // Act
         await service.CreateProductAsync(product);
@@ -75,35 +75,33 @@ public class UnitTestExamples
     }
 }
 
-// Example service class that uses the data access patterns
-public class ProductService
+// Example service classes demonstrating proper separation of read/write concerns.
+// Each class has a single constructor with a non-nullable dependency — no null guards needed.
+
+/// <summary>Read-only product query service. Depends only on <see cref="IReadStore"/>.</summary>
+public class ProductQueryService
 {
-    private readonly IReadStore? _readStore;
-    private readonly IDataStore? _dataStore;
+    private readonly IReadStore _readStore;
 
-    public ProductService(IReadStore readStore)
-    {
+    public ProductQueryService(IReadStore readStore) =>
         _readStore = readStore;
-    }
 
-    public ProductService(IDataStore dataStore)
-    {
-        _dataStore = dataStore;
-    }
-
-    public async Task<List<Product>> GetActiveProductsAsync()
-    {
-        if (_readStore == null) throw new InvalidOperationException("ReadStore not configured");
-        
-        return await _readStore.ListAsync<Product>(q => 
-            q.Where(p => p.IsActive)
+    public Task<List<Product>> GetActiveProductsAsync() =>
+        _readStore.ListAsync<Product>(q =>
+            q.Where(p => p.Status == ProductStatus.Active)
              .OrderBy(p => p.Name));
-    }
+}
+
+/// <summary>Write-side product command service. Depends on <see cref="IDataStore"/>.</summary>
+public class ProductCommandService
+{
+    private readonly IDataStore _dataStore;
+
+    public ProductCommandService(IDataStore dataStore) =>
+        _dataStore = dataStore;
 
     public async Task CreateProductAsync(Product product)
     {
-        if (_dataStore == null) throw new InvalidOperationException("DataStore not configured");
-        
         var handle = await _dataStore.AddAsync(product);
         await handle.SaveAsync();
     }
