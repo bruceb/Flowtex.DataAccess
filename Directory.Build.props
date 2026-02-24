@@ -2,7 +2,7 @@
   
   <PropertyGroup>
     <!-- Common Package Properties -->
-    <PackageVersion>1.0.3</PackageVersion>
+    <PackageVersion>1.0.5</PackageVersion>
     <Authors>Flowtex</Authors>
     <Company>Flowtex</Company>
     <Product>Flowtex Data Access</Product>

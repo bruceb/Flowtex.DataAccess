@@ -1,6 +1,6 @@
 @echo off
 REM Build and Pack NuGet Package for Flowtex.DataAccess
-REM Version: 1.0.3
+REM Version: 1.0.5
 
 echo Building and packaging Flowtex.DataAccess library...
 

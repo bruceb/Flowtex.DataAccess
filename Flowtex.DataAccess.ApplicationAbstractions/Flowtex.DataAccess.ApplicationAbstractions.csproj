@@ -9,14 +9,14 @@
     <!-- Publish as a separate package so application/domain layers can depend solely -->
     <!-- on abstractions without pulling in the EF Core transitive dependency. -->
     <PackageId>Flowtex.DataAccess.Abstractions</PackageId>
-    <PackageVersion>1.0.3</PackageVersion>
+    <PackageVersion>1.0.5</PackageVersion>
     <Authors>Flowtex</Authors>
     <Company>Flowtex</Company>
     <Product>Flowtex Data Access Abstractions</Product>
     <Description>Application-layer abstractions for Flowtex.DataAccess. Has no EF Core dependency — safe to reference from domain or application-layer projects to preserve clean architecture layering.</Description>
     <PackageTags>flowtex;dataaccess;abstractions</PackageTags>
-    <PackageProjectUrl>https://github.com/flowtex/dataaccess</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/flowtex/dataaccess</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/bruceb/Flowtex.DataAccess</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/bruceb/Flowtex.DataAccess</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
