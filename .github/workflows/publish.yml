@@ -1,0 +1,82 @@
+# Publishes Flowtex.DataAccess.Abstractions and Flowtex.DataAccess to nuget.org with
+# trusted publishing: GitHub issues an OIDC token, NuGet/login exchanges it for an API key
+# that is valid for one hour, so no long-lived NuGet API key is stored anywhere.
+#
+# One-time setup:
+#   1. nuget.org > account menu > Trusted Publishing > add a policy with
+#        Repository Owner: bruceb   Repository: Flowtex.DataAccess
+#        Workflow File:    publish.yml   Environment: release
+#   2. GitHub repo > Settings > Secrets and variables > Actions > new secret
+#        NUGET_USER = your nuget.org profile name (not your email address)
+#
+# Release: set <Version> in Directory.Build.props, commit, then push a matching tag,
+#   git tag v1.1.0; git push origin v1.1.0
+
+name: Publish to NuGet
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # lets the job request the OIDC token used by NuGet/login
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            10.0.x
+            11.0.x
+
+      - name: Read package version
+        id: version
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if (-not $version) { throw "No <Version> found in Directory.Build.props." }
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") {
+            throw "Tag $env:GITHUB_REF_NAME does not match <Version>$version</Version> in Directory.Build.props."
+          }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Test (net10.0 and net11.0)
+        run: dotnet test Tests/Flowtex.DataAccess.Tests/Flowtex.DataAccess.Tests.csproj --configuration Release
+
+      - name: Pack
+        run: |
+          dotnet pack Flowtex.DataAccess.ApplicationAbstractions/Flowtex.DataAccess.ApplicationAbstractions.csproj --configuration Release --output nupkgs
+          dotnet pack Flowtex.DataAccess.Infrastructure/Flowtex.DataAccess.Infrastructure.csproj --configuration Release --output nupkgs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkgs-${{ steps.version.outputs.value }}
+          path: nupkgs/
+
+      # Request the key just before pushing: it expires after one hour.
+      - name: NuGet login (OIDC to temporary API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      # Abstractions first: Flowtex.DataAccess depends on it. Each push also uploads the
+      # matching .snupkg. --skip-duplicate makes a re-run after a partial failure safe.
+      - name: Push packages
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: |
+          for id in Flowtex.DataAccess.Abstractions Flowtex.DataAccess; do
+            dotnet nuget push "nupkgs/$id.$VERSION.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done
