@@ -37,12 +37,7 @@ class Program
     
     static void ConfigureServices(ServiceCollection services)
     {
-        services.AddDbContext<SampleDbContext>(options =>
-            options.UseInMemoryDatabase("SampleDb"));
-            
-        services.AddScoped<IDataStore, SampleDataStore>();
-        services.AddScoped<IReadStore>(provider => provider.GetRequiredService<IDataStore>());
-        
+        services.AddSampleDataAccess("SampleDb");
         services.AddLogging(builder => builder.AddConsole());
     }
     
@@ -99,10 +94,10 @@ class Program
         
         logger.LogInformation($"Added product: {newProduct.Name} (ID: {newProduct.Id})");
         
-        // Update entity
+        // Update entity. SaveAsync above left newProduct tracked, so editing it and saving writes
+        // only the changed column; Update() is for detached entities and would rewrite every column.
         newProduct.Price = 24.99m;
-        var updateHandle = dataStore.Update(newProduct);
-        await updateHandle.SaveAsync();
+        await dataStore.SaveChangesAsync();
         
         logger.LogInformation($"Updated product price to: ${newProduct.Price}");
         
@@ -156,6 +151,7 @@ class Program
             await orderHandle.SaveAsync(); // Save to obtain order.Id for the order-items FK.
             
             // Stage order items and the total update, then flush both in one round-trip.
+            // The order is already tracked after SaveAsync, so no Update() call is needed.
             var orderItems = new List<OrderItem>
             {
                 new() { OrderId = order.Id, ProductId = 1, Quantity = 1, UnitPrice = 1299.99m },
@@ -164,7 +160,6 @@ class Program
 
             order.TotalAmount = orderItems.Sum(i => i.TotalPrice);
             await transactionDataStore.AddRangeAsync(orderItems);
-            transactionDataStore.Update(order);
             await transactionDataStore.SaveChangesAsync();
             
             // ExecuteUpdateAsync runs immediately; it does not participate in SaveChanges.

@@ -1,45 +1,26 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Target frameworks, version and shared package metadata come from ../Directory.Build.props. -->
+
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    
-    <!-- NuGet Package Properties -->
+    <IsPackable>true</IsPackable>
     <PackageId>Flowtex.DataAccess</PackageId>
-    <PackageVersion>1.0.5</PackageVersion>
-    <Authors>Flowtex</Authors>
-    <Company>Flowtex</Company>
-    <Product>Flowtex Data Access</Product>
     <Description>A modern, streamlined data access library for Entity Framework Core that provides a clean alternative to the traditional Repository and Unit of Work patterns. Includes abstractions and base implementations for simplified data operations.</Description>
     <PackageTags>flowtex;dataaccess;entityframework;efcore;repository;unitofwork</PackageTags>
-    <PackageProjectUrl>https://github.com/bruceb/Flowtex.DataAccess</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/bruceb/Flowtex.DataAccess</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
-  <ItemGroup>
-    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  <!-- Each target framework binds to the EF Core major version that ships with it. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.15" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="11.0.0" />
   </ItemGroup>
 
+  <!-- A plain project reference packs as a NuGet dependency on Flowtex.DataAccess.Abstractions. -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Flowtex.DataAccess.ApplicationAbstractions\Flowtex.DataAccess.ApplicationAbstractions.csproj" PrivateAssets="all" ReferenceOutputAssembly="true" IncludeAssets="all" />
-  </ItemGroup>
-
-  <!-- Ensure the referenced assembly gets included in the package -->
-  <ItemGroup>
-    <None Include="$(OutputPath)\Flowtex.DataAccess.ApplicationAbstractions.dll" Pack="true" PackagePath="lib\$(TargetFramework)\" Condition="Exists('$(OutputPath)\Flowtex.DataAccess.ApplicationAbstractions.dll')" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.103" />
+    <ProjectReference Include="..\Flowtex.DataAccess.ApplicationAbstractions\Flowtex.DataAccess.ApplicationAbstractions.csproj" />
   </ItemGroup>
 
 </Project>

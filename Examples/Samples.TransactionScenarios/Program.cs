@@ -15,31 +15,38 @@ class Program
         var services = new ServiceCollection();
         ConfigureServices(services);
         
-        var serviceProvider = services.BuildServiceProvider();
-        
-        using var scope = serviceProvider.CreateScope();
-        var dataStore = scope.ServiceProvider.GetRequiredService<IDataStore>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        
+        await using var serviceProvider = services.BuildServiceProvider();
+        var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+
         // Initialize database
-        var context = scope.ServiceProvider.GetRequiredService<SampleDbContext>();
-        await context.Database.EnsureCreatedAsync();
-        
+        await using (var setupScope = serviceProvider.CreateAsyncScope())
+        {
+            var context = setupScope.ServiceProvider.GetRequiredService<SampleDbContext>();
+            await context.Database.EnsureCreatedAsync();
+        }
+
         logger.LogInformation("=== Transaction Scenario Examples ===");
-        
-        await ComplexOrderProcessingExample(dataStore, logger);
-        await CompensatingTransactionExample(dataStore, logger);
-        await NestedTransactionExample(dataStore, logger);
-        
+
+        // Each scenario is its own unit of work, so each gets its own DI scope and DbContext.
+        // This matters after a rollback: the transaction undoes the database writes, but the
+        // DbContext still tracks the entities it saved, so a scope that saw a rollback should be
+        // discarded rather than reused.
+        await RunInScopeAsync(serviceProvider, store => ComplexOrderProcessingExample(store, logger));
+        await RunInScopeAsync(serviceProvider, store => CompensatingTransactionExample(store, logger));
+        await RunInScopeAsync(serviceProvider, store => NestedTransactionExample(store, logger));
+
         logger.LogInformation("=== Transaction examples completed! ===");
+    }
+
+    static async Task RunInScopeAsync(IServiceProvider services, Func<IDataStore, Task> scenario)
+    {
+        await using var scope = services.CreateAsyncScope();
+        await scenario(scope.ServiceProvider.GetRequiredService<IDataStore>());
     }
     
     static void ConfigureServices(ServiceCollection services)
     {
-        services.AddDbContext<SampleDbContext>(options =>
-            options.UseInMemoryDatabase("TransactionDb"));
-            
-        services.AddScoped<IDataStore, SampleDataStore>();
+        services.AddSampleDataAccess("TransactionDb");
         services.AddLogging(builder => builder.AddConsole());
     }
     
@@ -108,18 +115,18 @@ class Program
                     orderItems.Add(orderItem);
                     totalAmount += orderItem.TotalPrice;
                     
-                    // Stage the stock reduction — do NOT save individually.
+                    // Stage the stock reduction — do NOT save individually. The product was loaded
+                    // with QueryTracked, so the change tracker sees this edit without Update().
                     // All remaining changes are flushed in one batch below.
                     product.Stock -= item.Quantity;
-                    transactionDataStore.Update(product);
                 }
                 
                 // Steps 4-6: Stage all remaining writes and flush once to minimise
                 // round-trips within the transaction.
+                // The order is already tracked (AddAsync + SaveAsync above), so no Update() call.
                 await transactionDataStore.AddRangeAsync(orderItems);
                 order.TotalAmount = totalAmount;
                 order.Status = OrderStatus.Shipped;
-                transactionDataStore.Update(order);
                 await transactionDataStore.SaveChangesAsync();
                 
                 return new OrderResult 
@@ -198,20 +205,20 @@ class Program
             var customer = await outerDataStore.QueryTracked<Customer>()
                 .FirstOrDefaultAsync(c => c.Id == 1);
             
-            if (customer != null)
-            {
-                customer.Phone = "+1-555-0123";
-                // Stage the update — do not save yet. ProcessOrderInSameTransaction will call
-                // SaveChangesAsync to obtain the order's auto-generated ID, which also persists
-                // this staged customer change in the same round-trip.
-                outerDataStore.Update(customer);
-                
-                logger.LogInformation("Updated customer phone in outer transaction");
-            }
-            
+            // Throwing rolls the whole transaction back, so no order is created for a missing customer.
+            if (customer == null)
+                throw new InvalidOperationException("Customer 1 not found; nothing was changed.");
+
+            // The customer was loaded with QueryTracked, so the change tracker already sees
+            // this edit — no Update() call is needed (Update would mark every column modified).
+            // ProcessOrderInSameTransaction saves to obtain the order's auto-generated ID,
+            // which also persists this customer change in the same round-trip.
+            customer.Phone = "+1-555-0123";
+            logger.LogInformation("Updated customer phone in outer transaction");
+
             // Inner business logic (uses same transaction context)
             var orderResult = await ProcessOrderInSameTransaction(outerDataStore, logger);
-            
+
             // Both customer update and order processing share the same transaction
             return new { CustomerUpdated = true, OrderResult = orderResult };
         });

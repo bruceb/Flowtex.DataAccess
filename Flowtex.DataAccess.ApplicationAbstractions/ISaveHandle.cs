@@ -14,5 +14,11 @@
 /// </summary>
 public interface ISaveHandle
 {
+    /// <summary>
+    /// Persists all pending changes on the store that issued this handle.
+    /// Equivalent to calling <see cref="IDataStore.SaveChangesAsync"/>.
+    /// </summary>
+    /// <param name="ct">Cancels the database call.</param>
+    /// <returns>The number of state entries written to the database.</returns>
     Task<int> SaveAsync(CancellationToken ct = default);
 }

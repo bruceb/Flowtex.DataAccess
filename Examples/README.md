@@ -163,7 +163,7 @@ await saveHandle.SaveAsync();
 ```csharp
 // Stage multiple mutations
 await dataStore.AddAsync(entity1);  // handle ignored
-dataStore.Update(entity2);           // handle ignored
+dataStore.Update(entity2);           // handle ignored; entity2 is detached (e.g. from a request body)
 
 // Persist everything in one database round-trip
 await dataStore.SaveChangesAsync();

@@ -8,6 +8,9 @@
     <Project Path="Examples/Samples.TransactionScenarios/Samples.TransactionScenarios.csproj" />
     <Project Path="Examples/Samples.WebApi/Samples.WebApi.csproj" />
   </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/Flowtex.DataAccess.Tests/Flowtex.DataAccess.Tests.csproj" />
+  </Folder>
   <Project Path="Flowtex.DataAccess.ApplicationAbstractions/Flowtex.DataAccess.ApplicationAbstractions.csproj" />
   <Project Path="Flowtex.DataAccess.Infrastructure/Flowtex.DataAccess.Infrastructure.csproj" />
 </Solution>

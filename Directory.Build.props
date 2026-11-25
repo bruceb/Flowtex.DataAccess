@@ -1,37 +1,50 @@
 <Project>
-  
+
+  <!--
+    Shared settings for the library projects and tests under the repo root.
+    The samples under Examples/ have their own Directory.Build.props and do not import this file.
+  -->
+
   <PropertyGroup>
-    <!-- Common Package Properties -->
-    <PackageVersion>1.0.5</PackageVersion>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- Package metadata: the single source of truth for version and URLs. -->
+  <PropertyGroup>
+    <Version>1.1.0</Version>
     <Authors>Flowtex</Authors>
     <Company>Flowtex</Company>
     <Product>Flowtex Data Access</Product>
     <Copyright>Copyright © Flowtex 2026</Copyright>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <PackageProjectUrl>https://github.com/flowtex/dataaccess</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/flowtex/dataaccess</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageProjectUrl>https://github.com/bruceb/Flowtex.DataAccess</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/bruceb/Flowtex.DataAccess</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- Projects opt in with <IsPackable>true</IsPackable>, so tests never produce packages. -->
+    <IsPackable>false</IsPackable>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    
-    <!-- Build Properties -->
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <WarningsAsErrors />
-    <WarningsNotAsErrors />
-    
-    <!-- Source Link Properties -->
+  </PropertyGroup>
+
+  <!-- Source Link -->
+  <PropertyGroup>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true' or '$(TF_BUILD)' == 'true' or '$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="11.0.100" PrivateAssets="All" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath=""/>
+  <!-- Items are evaluated after all properties, so IsPackable set in the project file is visible here. -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" />
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
 </Project>

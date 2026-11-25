@@ -54,7 +54,7 @@ The library is built around Entity Framework Core but abstracts away the complex
 
 **5. Minimal Boilerplate** *(Template Method pattern)*
 - `DataStoreBase` implements all logic; concrete stores override a single `protected abstract DbContext Context { get; }` property
-- Built-in transaction support via `InTransactionAsync` uses EF Core's execution strategy for automatic retry and rollback
+- Built-in transaction support via `InTransactionAsync` runs through EF Core's execution strategy and rolls back automatically on failure (see [Transaction Management](#transaction-management) for the retry caveats)
 - Consistent API across all entity types
 
 ## Installation
@@ -73,6 +73,17 @@ dotnet add package Flowtex.DataAccess.Abstractions
 # Infrastructure project (DataStoreBase + EF Core)
 dotnet add package Flowtex.DataAccess
 ```
+
+`Flowtex.DataAccess` depends on `Flowtex.DataAccess.Abstractions`, so installing it brings the interfaces in automatically.
+
+### Supported frameworks
+
+Both packages target .NET 10 and .NET 11. NuGet picks the matching build, and each one depends on the EF Core release for its runtime:
+
+| Your project targets | EF Core dependency |
+|---|---|
+| `net10.0` | `Microsoft.EntityFrameworkCore` 10.x |
+| `net11.0` | `Microsoft.EntityFrameworkCore` 11.x |
 
 ## Examples
 
@@ -221,6 +232,14 @@ public async Task<OrderResult> ProcessOrderAsync(Order order, List<OrderItem> it
 }
 ```
 
+Things to know about `InTransactionAsync`:
+
+- **A failure clears the change tracker.** If the delegate or the commit throws, the store detaches every entity it was tracking, whether or not anything was saved. Entities saved inside the transaction no longer exist, and unsaved edits (including ones made before the call) are discarded so a later save cannot persist half a failed unit of work. The store can be reused, but load entities again before changing them.
+- **The work can run more than once.** With a retrying execution strategy such as `EnableRetryOnFailure`, every attempt (including the first) starts with an empty change tracker, and calling `InTransactionAsync` with unsaved changes throws `InvalidOperationException` instead of losing them on a retry. Load and modify entities inside the delegate (not instances captured from outside it), and keep it free of non-repeatable side effects (emails, HTTP calls).
+- **Set-based operations bypass the tracker.** `ExecuteUpdateAsync`/`ExecuteDeleteAsync` run immediately. If the same row is also loaded with `QueryTracked` and modified, a later `SaveChangesAsync` writes the tracked values back over a set-based update, or throws `DbUpdateConcurrencyException` for a row that was deleted.
+- **No nesting.** Calling `InTransactionAsync` while a transaction is already active on the same store throws. Pass the store from the outer delegate to helper methods instead, as `Samples.TransactionScenarios` does.
+- **Use a real provider in tests.** The EF Core InMemory provider supports neither transactions nor `ExecuteUpdateAsync`/`ExecuteDeleteAsync`. Use SQLite in-memory (as the samples and tests in this repo do) or a real database.
+
 ### ISaveHandle Notes
 
 Because EF Core uses a single shared change tracker per `DbContext` instance, calling `SaveAsync()` on any `ISaveHandle` saves **all** pending changes in the context — not only the operation that returned the handle. This is intentional: it preserves EF's unit-of-work semantics.
@@ -339,10 +358,31 @@ The one behaviour to internalise: `ISaveHandle.SaveAsync()` flushes *all* pendin
 
 ---
 
+## Building and Packaging
+
+Requires the .NET 11 SDK, which builds both the `net10.0` and `net11.0` targets.
+
+```powershell
+dotnet build Flowtex.DataAccess.slnx
+dotnet test Tests\Flowtex.DataAccess.Tests\Flowtex.DataAccess.Tests.csproj   # runs once per target framework
+.\pack-nugets.ps1                                                             # restore, build, test, pack into .\nupkgs
+```
+
+The version is set once, in `<Version>` in `Directory.Build.props`. `pack-nugets.ps1` produces both `Flowtex.DataAccess.Abstractions` and `Flowtex.DataAccess`, each with `.snupkg` symbols.
+
+The samples under `Examples/` target `net10.0` and use SQLite in-memory, so they run with no database setup:
+
+```powershell
+dotnet run --project Examples\Samples.BasicUsage
+dotnet run --project Examples\Samples.TransactionScenarios
+dotnet run --project Examples\Samples.WebApi
+dotnet run -c Release --project Examples\Samples.PerformanceDemo
+```
+
 ## Contributing
 
 We welcome contributions! Please see our contributing guidelines for details on how to submit pull requests, report issues, and suggest improvements.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0) - see the [LICENSE](LICENSE) file for details.

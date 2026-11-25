@@ -1,15 +1,9 @@
-using Flowtex.DataAccess.Abstractions;
-using Microsoft.EntityFrameworkCore;
 using Samples.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
-builder.Services.AddDbContext<SampleDbContext>(options =>
-    options.UseInMemoryDatabase("SampleApiDb"));
-
-builder.Services.AddScoped<IDataStore, SampleDataStore>();
-builder.Services.AddScoped<IReadStore>(provider => provider.GetRequiredService<IDataStore>());
+builder.Services.AddSampleDataAccess("SampleApiDb");
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
